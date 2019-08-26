@@ -4,7 +4,7 @@
   (:use clojure.test)
   (:require [montoux.gestalt :as gestalt]
             [clojure.java.io :as jio])
-  (:import java.io.StringReader))
+  (:import (java.io File StringReader)))
 
 
 (deftest test-with-config-with-environment
@@ -42,9 +42,9 @@
     (is (= 1 (gestalt/get :foo)))))
 
 (defn- tmpfile [contents]
-  (let [f (doto (java.io.File/createTempFile "cfg-test" ".clj") .deleteOnExit)]
-    (spit f contents)
-    f))
+  (doto (File/createTempFile "cfg-test" ".clj")
+    (.deleteOnExit)
+    (spit contents)))
 
 (defmacro with-system-property
   "Temporary sets system property k to value v.
@@ -77,15 +77,29 @@
        (jio/delete-file f)))))
 
 (deftest test-contains?
-  (gestalt/with-config {:test {:foo 42}}
+  (gestalt/with-config {:test {:foo 42 :a {:b {:c 1}} :vec [0] :falsey false :null nil}}
     (gestalt/with-environment :test
+      (is (not (gestalt/defined? nil)))
+      (is (not (gestalt/defined? :bar)))
+      (is (not (gestalt/defined? :vec 1)))
+      (is (not (gestalt/defined? "foo")))
       (is (gestalt/defined? :foo))
-      (is (not (gestalt/defined? :bar))))))
+      (is (gestalt/defined? :a :b :c))
+      (is (gestalt/defined? :vec 0))
+      (is (gestalt/defined? :falsey))
+      (is (gestalt/defined? :null))
+      )))
 
-(deftest test-get?
-  (gestalt/with-config {:test {:foo 42 :a {:b {:c 1}}}}
+(deftest test-get
+  (gestalt/with-config {:test {:foo 42 :a {:b {:c 1}} :vec [0] :falsey false :null nil}}
     (gestalt/with-environment :test
-      (is (thrown? IllegalArgumentException (gestalt/get :bar)))
       (is (thrown? IllegalArgumentException (gestalt/get nil)))
+      (is (thrown? IllegalArgumentException (gestalt/get :bar)))
+      (is (thrown? IllegalArgumentException (gestalt/get :vec 1)))
+      (is (thrown? IllegalArgumentException (gestalt/get "foo")))
       (is (= 42 (gestalt/get :foo)))
-      (is (= 1 (gestalt/get :a :b :c))))))
+      (is (= 1 (gestalt/get :a :b :c)))
+      (is (= 0 (gestalt/get :vec 0)))
+      (is (= false (gestalt/get :falsey)))
+      (is (= nil (gestalt/get :null)))
+      )))

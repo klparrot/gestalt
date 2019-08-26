@@ -154,18 +154,21 @@ in the configuration file your environment keys should be keywords, e.g. `:devel
   *env*)
 
 (defn defined?
-  "Returns true if and only if key k is defined in the configuration map."
-  [k]
-  (when (nil? *cfg*) (reset-gestalt!))
-  (contains? (clojure.core/get *cfg* *env*) k))
-
-(defn get
-  "Returns the configuration value for keys ks."
+  "Returns true iff the sequence of keys ks is defined in the configuration map."
   [& ks]
   (when (nil? *cfg*) (reset-gestalt!))
-  (or (get-in *cfg* (concat [*env*] ks))
-      (throw (IllegalArgumentException.
-              (str "Configuration \"" (vec ks) "\" not found "
-                   "in environment " *env*)))))
+  (let [sentinel (Object.)
+        found    (get-in *cfg* (cons *env* ks) sentinel)]
+    (not (identical? sentinel found))))
 
+(defn get
+  "Returns the configuration value for the sequence of keys ks."
+  [& ks]
+  (when (nil? *cfg*) (reset-gestalt!))
+  (let [sentinel (Object.)
+        found    (get-in *cfg* (cons *env* ks) sentinel)]
+    (if (identical? sentinel found)
+      (throw (IllegalArgumentException.
+        (str "Configuration " (vec ks) " not found in environment " *env*)))
+      found)))
 
